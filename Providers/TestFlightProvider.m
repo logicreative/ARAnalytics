@@ -16,10 +16,7 @@
 
 - (id)initWithIdentifier:(NSString *)identifier {
     NSAssert([TestFlight class], @"TestFlight is not included");
-    // For non App store builds use a device identifier.
-#ifndef RELEASE
-    [TestFlight setDeviceIdentifier:[TestFlightProvider uniqueID]];
-#endif
+    
     [TestFlight takeOff:identifier];
 
     return [super init];
@@ -36,11 +33,11 @@
 
 - (void)identifyUserWithID:(NSString *)userID andEmailAddress:(NSString *)email {
     if (userID) {
-        [TestFlight addCustomEnvironmentInformation:@"id" forKey:userID];
+        [TestFlight addCustomEnvironmentInformation:userID forKey:@"user_id"];
     }
     
     if (email) {
-        [TestFlight addCustomEnvironmentInformation:@"email" forKey:email];
+        [TestFlight addCustomEnvironmentInformation:email forKey:@"email"];
     }
 }
 

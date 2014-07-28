@@ -11,6 +11,7 @@
 #import "GAI.h"
 #import "GAIFields.h"
 #import "GAIDictionaryBuilder.h"
+#import "NSDictionary+GoogleAnalytics.h"
 
 @interface GoogleAnalyticsProvider ()
 
@@ -60,23 +61,55 @@
 }
 
 - (void)event:(NSString *)event withProperties:(NSDictionary *)properties {
-    GAIDictionaryBuilder *builder = [GAIDictionaryBuilder createEventWithCategory:@"default"
+    NSString *category = properties.category;
+    if (!category) {
+        category = @"default"; // category is a required value
+    }
+    
+#ifdef DEBUG
+    [self warnAboutIgnoredProperies:properties];
+#endif
+    
+    GAIDictionaryBuilder *builder = [GAIDictionaryBuilder createEventWithCategory:category
                                                                            action:event
-                                                                            label:nil
-                                                                            value:nil];
-    [self.tracker send:[builder build]];
+                                                                            label:properties.label
+                                                                            value:properties.value];
+    
+    NSMutableDictionary *newProperties = [builder build];
+    
+    // adding custom Dimension values if we can find a key in the mappings
+    for (NSString *key in self.customDimensionMappings.allKeys) {
+        NSString *potentialValue = properties[key];
+        if (potentialValue) {
+            [newProperties setObject:potentialValue forKey:self.customDimensionMappings[key]];
+        }
+    }
+    
+    [self.tracker send:newProperties];
 }
 
 - (void)didShowNewPageView:(NSString *)pageTitle {
-    [self event:@"Screen view" withProperties:@{ @"screen": pageTitle }];
+    [self event:@"Screen view" withProperties:@{ @"label": pageTitle }];
     [self.tracker set:kGAIScreenName value:pageTitle];
     [self.tracker send:[[GAIDictionaryBuilder createAppView] build]];
 }
 
-- (void)logTimingEvent:(NSString *)event withInterval:(NSNumber *)interval {
-    [self event:event withProperties:@{ @"length": interval }];
+- (void)logTimingEvent:(NSString *)event withInterval:(NSNumber *)interval  properties:(NSDictionary *)properties{
+    // Prepare properties dictionary
+    if (!properties) {
+        properties = @{ @"value": @([interval intValue]) };
+    } else {
+        NSMutableDictionary *newProperties = [properties mutableCopy];
+        newProperties[@"value"] = @([interval intValue]);
+        properties = newProperties;
+    }
+    
+    // Send event
+    [self event:event withProperties:properties];
+    
+    // By Google's header, the interval should be seconds in milliseconds.
     GAIDictionaryBuilder *builder = [GAIDictionaryBuilder createTimingWithCategory:@"default"
-                                                                          interval:interval
+                                                                          interval:@((int)([interval doubleValue]*1000))
                                                                               name:event
                                                                              label:nil];
     [self.tracker send:[builder build]];
@@ -86,6 +119,22 @@
 
 - (void)dispatchGA {
     [[GAI sharedInstance] dispatch];
+}
+
+#pragma mark - Warnings
+
+-(void) warnAboutIgnoredProperies:(NSDictionary*)propertiesDictionary
+{
+    for (id key in propertiesDictionary) {
+        if (    [key isEqualToString:[NSDictionary googleAnalyticsLabelKey]] ||
+                [key isEqualToString:[NSDictionary googleAnalyticsCategoryKey]] ||
+                [key isEqualToString:[NSDictionary googleAnalyticsValueKey]] ||
+                [self.customDimensionMappings.allKeys containsObject:key]
+            ) {
+            continue;
+        }
+        NSLog(@"%@: property ignored %@:%@",self,key,propertiesDictionary[key]);
+    }
 }
 
 #endif

@@ -2,8 +2,8 @@
 //  ARAnalytics.h
 //  Art.sy
 //
-//  Created by orta therox on 18/12/2012.
-//  Copyright (c) 2012 Art.sy. All rights reserved.
+//  Created by Orta Therox on 18/12/2012.
+//  Copyright (c) 2012 - Present Orta Therox & Art.sy. All rights reserved.
 //
 //  Permission is hereby granted, free of charge, to any person
 //  obtaining a copy of this software and associated documentation
@@ -26,6 +26,17 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 
+// For OS X support we need to mock up UIVIewController/UINavigationViewController
+
+#if !TARGET_OS_IPHONE
+@interface UIViewController : NSObject @end
+@interface UINavigationController : NSObject @end
+@protocol UINavigationControllerDelegate <NSObject> @end
+#endif
+
+@class TSConfig;
+@class ARAnalyticalProvider;
+
 /**
  @class
  ARAnalytics Main Class.
@@ -39,9 +50,9 @@
  <pre>
 
  [ARAnalytics setupWithAnalytics: @{
-    ARCrittercismAppID : @"KEY",
-    ARKISSMetricsAPIKey : @"KEY",
-    ARGoogleAnalyticsID : @"KEY"
+ ARCrittercismAppID : @"KEY",
+ ARKISSMetricsAPIKey : @"KEY",
+ ARGoogleAnalyticsID : @"KEY"
  }];
 
  </pre>
@@ -49,16 +60,6 @@
  For more advanced usage, please see the <a
  href="https://github.com/orta/ARAnalytics">ARAnalytics Readme</a>.
  */
-
-// For OS X support we need to mock up UIVIewController/UINavigationViewController
-
-#if !TARGET_OS_IPHONE
-@interface UIViewController : NSObject @end
-@interface UINavigationController : NSObject @end
-@protocol UINavigationControllerDelegate <NSObject> @end
-#endif
-
-@class TSConfig;
 
 @interface ARAnalytics : NSObject <UINavigationControllerDelegate>
 
@@ -86,36 +87,72 @@
 + (void)setupHockeyAppWithBetaID:(NSString *)beta liveID:(NSString *)liveID;
 + (void)setupParseAnalyticsWithApplicationID:(NSString *)appID clientKey:(NSString *)clientKey;
 + (void)setupHeapAnalyticsWithApplicationID:(NSString *)appID;
++ (void)setupChartbeatWithApplicationID:(NSString *)appID;
++ (void)setupLibratoWithEmail:(NSString *)email token:(NSString *)token prefix:(NSString *)prefix;
+
+/// Add a provider manually
++ (void)setupProvider:(ARAnalyticalProvider *)provider;
+
+/// Remove a provider manually
++ (void)removeProvider:(ARAnalyticalProvider *)provider;
+
+/// Show all current providers
++ (NSSet *)currentProviders;
+
 
 /// Set a per user property
+/// @warning Deprecated, will be removed in next major release
 + (void)identifyUserwithID:(NSString *)userID andEmailAddress:(NSString *)email __attribute__((deprecated));
+
+/// Register a user and an associated email address, it is fine to send nils for either.
 + (void)identifyUserWithID:(NSString *)userID andEmailAddress:(NSString *)email;
 
+/// Set a per user property
 + (void)setUserProperty:(NSString *)property toValue:(NSString *)value;
-+ (void)incrementUserProperty:(NSString *)counterName byInt:(int)amount;
+
+/// Adds to a user property if support exists in the provider
++ (void)incrementUserProperty:(NSString *)counterName byInt:(NSInteger)amount;
 
 /// Submit user events to providers
 + (void)event:(NSString *)event;
+
+/// Submit user events to providers with additional properties
 + (void)event:(NSString *)event withProperties:(NSDictionary *)properties;
 
 /// Submit errors to providers
 + (void)error:(NSError *)error;
+
+/// Submit errors to providers with an associated message
 + (void)error:(NSError *)error withMessage:(NSString *)message;
 
 /// Monitor Navigation changes as page view
 + (void)pageView:(NSString *)pageTitle;
+
 #if TARGET_OS_IPHONE
-+ (void)monitorNavigationViewController:(UINavigationController *)controller;
+/// Monitor a navigation controller, submitting each [ARAnalytics pageView:] on didShowViewController
+/// @warning Deprecated in favour of monitorNavigationController:
++ (void)monitorNavigationViewController:(UINavigationController *)controller __attribute__((deprecated));
+
+/// Monitor a navigation controller, submitting each [ARAnalytics pageView:] on didShowViewController
++ (void)monitorNavigationController:(UINavigationController *)controller;
 #endif
 
 /// Let ARAnalytics deal with the timing of an event
 + (void)startTimingEvent:(NSString *)event;
+
+/// Trigger a finishing event for the timing
 + (void)finishTimingEvent:(NSString *)event;
+
+/// @warning the properites must not contain the key string `length` .
++ (void)finishTimingEvent:(NSString *)event withProperties:(NSDictionary *)properties;
 
 @end
 
 /// an NSLog-like command that send to providers
 extern void ARLog (NSString *format, ...);
+
+/// A try-catch for nil protection wrapped event
+extern void ARAnalyticsEvent (NSString *event, NSDictionary *properties);
 
 /// Provide keys for the setupWithDictionary
 extern const NSString *ARCountlyAppKey;
@@ -143,5 +180,8 @@ extern const NSString *ARHockeyAppLiveID;
 extern const NSString *ARParseApplicationID;
 extern const NSString *ARParseClientKey;
 extern const NSString *ARHeapAppID;
-
-
+extern const NSString *ARChartbeatID;
+extern const NSString *ARUMengAnalyticsID;
+extern const NSString *ARLibratoEmail;
+extern const NSString *ARLibratoToken;
+extern const NSString *ARLibratoPrefix;
